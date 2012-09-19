@@ -42,7 +42,7 @@ public class Server {
 		new InetSocketAddress(IP, PORT));
 	}
 
-	public void startWithCompletionHandler()  {
+	public void start()  {
 		
 		System.out.println("Server listen on " + PORT);
 		// for future connections
@@ -71,7 +71,7 @@ public class Server {
 
 	public static void main(String args[]){
 		try {
-			new Server().startWithCompletionHandler();
+			new Server().start();
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
