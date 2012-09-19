@@ -10,8 +10,7 @@ public class Client {
 
 	public final static String IP = Server.IP;
 	public final static int PORT = Server.PORT;
-
-	 
+	
 	public static void main(String... args) throws Exception {
 		AsynchronousSocketChannel client = AsynchronousSocketChannel.open();
 		client.connect(new InetSocketAddress(IP, PORT));

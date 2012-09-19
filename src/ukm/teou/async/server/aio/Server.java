@@ -45,10 +45,10 @@ public class Server {
 	public void startWithCompletionHandler()  {
 		
 		System.out.println("Server listen on " + PORT);
-		// 注册事件和事件完成后的处理器
+		// for future connections
 		server.accept(new Connection(), ACCEPTOR);
 
-		// 主线程继续自己的行为
+		// do reading
 //		try {
 //			group.awaitTermination(Long.MAX_VALUE, TimeUnit.DAYS);
 //		} catch (InterruptedException e) {
