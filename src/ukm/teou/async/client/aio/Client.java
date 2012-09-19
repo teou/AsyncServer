@@ -1,8 +1,10 @@
-package ukm.teou.async.server.aio;
+package ukm.teou.async.client.aio;
 
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousSocketChannel;
+
+import ukm.teou.async.server.aio.Server;
 
 public class Client {
 

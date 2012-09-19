@@ -11,7 +11,7 @@
  * Copyright (c) 2012, TNT All Rights Reserved.  
  */
 
-package ukm.teou.async.server.select;
+package ukm.teou.async.client.select;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -22,6 +22,8 @@ import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import ukm.teou.async.server.select.Server;
 
 /**
  * ClassName:Client Function: Reason:
