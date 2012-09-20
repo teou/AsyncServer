@@ -23,6 +23,7 @@ public class Server {
 
 	public final static String IP = "127.0.0.1";
 	public final static int PORT = 23876;
+	public static final int WORKER_COUNT = 1;
 	public static final Charset CHAR_SET =  Charset.forName("UTF8");
 //	public static final CharsetDecoder DECODER  =  CHAR_SET.newDecoder();
 	
@@ -37,7 +38,7 @@ public class Server {
 
 	public Server() throws IOException {
 		group = AsynchronousChannelGroup.withThreadPool(
-				Executors.newFixedThreadPool(4));
+				Executors.newFixedThreadPool(WORKER_COUNT));
 		server = AsynchronousServerSocketChannel.open(group).bind(
 		new InetSocketAddress(IP, PORT));
 	}
