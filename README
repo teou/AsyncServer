@@ -1,2 +1,2 @@
 a async tcp server in java 7
-implemented in select and aio(all epoll in linux)
+implemented in select and aio(all based on epoll in linux)
