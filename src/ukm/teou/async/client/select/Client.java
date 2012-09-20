@@ -192,6 +192,7 @@ public class Client {
 	public static void main(String[] args){
 		
 		//args 
+		System.out.println("start client");
 		int maxcon = MAX_CONN;
 		if(args!=null && args.length>=1){
 			try{
