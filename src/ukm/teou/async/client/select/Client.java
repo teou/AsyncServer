@@ -37,9 +37,9 @@ import ukm.teou.async.server.select.Server;
  */
 public class Client {
 
-	public static final long SLEEP_BEFORE_WRITE = 5;
+	public static final long SLEEP_BEFORE_WRITE = 0;
 
-	private static InetSocketAddress ip = new InetSocketAddress(Server.BIND_IP, Server.BIND_PORT);
+	private static volatile InetSocketAddress ip = new InetSocketAddress(Server.BIND_IP, Server.BIND_PORT);
 	
 	private static AtomicInteger writeCount = new AtomicInteger(0);
 
@@ -187,11 +187,29 @@ public class Client {
 		
 	} // end class Connect
 
-	public static final int MAX_CONN = 2000;
+	public static final int MAX_CONN = 1000;
 	
 	public static void main(String[] args){
-		String names[] = new String[MAX_CONN];
-		for (int index = 0; index < MAX_CONN; index++) {
+		
+		//args 
+		int maxcon = MAX_CONN;
+		if(args!=null && args.length>=1){
+			try{
+				maxcon = Integer.valueOf(args[1]);
+			}catch(Exception e){}
+			String ip = "127.0.0.1";
+			try{
+				ip = args[2];
+			}catch(Exception e){}
+			int port = 23876;
+			try{
+				port = Integer.valueOf(args[3]);
+			}catch(Exception e){}
+			Client.ip = new InetSocketAddress(ip, port);
+		}
+		
+		String names[] = new String[maxcon];
+		for (int index = 0; index < maxcon; index++) {
 			if(index%2!=0){
 				names[index] = "hello";
 			}else{

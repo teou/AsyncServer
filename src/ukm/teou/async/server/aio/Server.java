@@ -19,11 +19,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import ukm.teou.async.client.select.Client;
+
 public class Server {
 
-	public final static String IP = "127.0.0.1";
-	public final static int PORT = 23876;
-	public static final int WORKER_COUNT = 1;
+	public static volatile int WORK_NUM = 4;
+	public volatile static String IP = "127.0.0.1";
+	public volatile static int PORT = 23876;
 	public static final Charset CHAR_SET =  Charset.forName("UTF8");
 //	public static final CharsetDecoder DECODER  =  CHAR_SET.newDecoder();
 	
@@ -37,15 +39,16 @@ public class Server {
 	public static final AtomicInteger reqCount = new AtomicInteger(0);
 
 	public Server() throws IOException {
+//		AsynchronousChannelGroup.withFixedThreadPool(nThreads, threadFactory)
 		group = AsynchronousChannelGroup.withThreadPool(
-				Executors.newFixedThreadPool(WORKER_COUNT));
+				Executors.newFixedThreadPool(WORK_NUM));
 		server = AsynchronousServerSocketChannel.open(group).bind(
 		new InetSocketAddress(IP, PORT));
 	}
 
 	public void start()  {
 		
-		System.out.println("Server listen on " + PORT);
+		System.out.println("Server listen on " + IP+", "+PORT);
 		// for future connections
 		server.accept(new Connection(), ACCEPTOR);
 
@@ -69,9 +72,41 @@ public class Server {
 		}
 
 	}
+	
+	public static void closeConnection(AsynchronousSocketChannel channel){
+		try {
+			System.err.println("close channel , conn_num="+connections.size());
+			channel.close();
+			connections.remove(channel);
+		} catch (IOException e) {
+			System.err.println("!!! error closing channel "+channel);
+			e.printStackTrace();
+			connections.remove(channel);
+			try {
+				channel.close();
+			} catch (IOException e1) {
+				e1.printStackTrace();
+			}
+		}
+	}
 
 	public static void main(String args[]){
 		try {
+			if(args!=null && args.length>=1){
+				try{
+					WORK_NUM = Integer.valueOf(args[1]);
+				}catch(Exception e){}
+				String ip = "127.0.0.1";
+				try{
+					ip = args[2];
+				}catch(Exception e){}
+				int port = 23876;
+				try{
+					port = Integer.valueOf(args[3]);
+				}catch(Exception e){}
+				IP = ip;
+				PORT = port;
+			}
 			new Server().start();
 		} catch (IOException e) {
 			e.printStackTrace();

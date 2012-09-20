@@ -1,5 +1,7 @@
 package ukm.teou.async.server.aio;
 
+import java.io.IOException;
+import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.CompletionHandler;
 
 public class WriteHandler implements CompletionHandler<Integer, Connection>  {
@@ -20,6 +22,9 @@ public class WriteHandler implements CompletionHandler<Integer, Connection>  {
 	public void failed(Throwable exc, Connection attachment) {
 		// TODO Auto-generated method stub
 		exc.printStackTrace();
+		if(attachment!=null){
+			Server.closeConnection(attachment.getChannel());
+		}
 	}
 
 }

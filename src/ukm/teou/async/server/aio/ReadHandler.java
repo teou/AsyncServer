@@ -38,29 +38,20 @@ public class ReadHandler implements CompletionHandler<Integer, Connection> {
 			buffer.flip();
 			channel.write(buffer, connection, Server.WRITER);
 		}else{
-			closeConnection(connection.getChannel());
+			Server.closeConnection(connection.getChannel());
 		}
 		
 //		System.out.println("read["+readCount+"], "+ rcvd);
 		
 	}
-	
-	private void closeConnection(AsynchronousSocketChannel channel){
-		try {
-			System.err.println("close channel , conn_num="+Server.connections.size());
-			channel.close();
-			Server.connections.remove(channel);
-		} catch (IOException e) {
-			System.err.println("!!! error in close channel "+channel);
-			e.printStackTrace();
-		}
-	}
-	
 
 	@Override
 	public void failed(Throwable exc, Connection attachment) {
 		// TODO Auto-generated method stub
 		exc.printStackTrace();
+		if(attachment!=null){
+			Server.closeConnection(attachment.getChannel());
+		}
 	}
 
 }

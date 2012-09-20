@@ -1,5 +1,6 @@
 package ukm.teou.async.server.aio;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.CompletionHandler;
@@ -20,11 +21,14 @@ public class AcceptHandler implements CompletionHandler<AsynchronousSocketChanne
 		connection.setBuffer(buffer);
 		channel.read(buffer, connection, Server.READER);
 	}
-
+	
 	@Override
 	public void failed(Throwable exc, Connection attachment) {
 		// TODO Auto-generated method stub
 		exc.printStackTrace();
+		if(attachment!=null){
+			Server.closeConnection(attachment.getChannel());
+		}
 	}
 
 }

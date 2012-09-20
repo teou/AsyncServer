@@ -23,10 +23,11 @@ import java.util.Map;
 import java.util.Set;
 
 
+
 public class Server {
 	
-	public static final int BIND_PORT = 23876;
-	public static final String BIND_IP = "127.0.0.1";//10.3.144.136
+	public volatile static int BIND_PORT = 23876;
+	public volatile  static String BIND_IP = "127.0.0.1";//10.3.144.136
 	public static final int SELECT_TIMEOUT = 2000;
 	public static final int MAX_CONN_NUM = 102400;
 	
@@ -71,11 +72,28 @@ public class Server {
 		}
 	}
 	
+	private static void registOp(SelectionKey key, int op){
+		if(key.attachment()!=null){
+			KeyAttr attr = (KeyAttr)key.attachment();
+			attr.setState(attr.getState() | op);
+		}
+		key.interestOps(key.interestOps() | op);
+	}
+	
+	private static void unRegistOp(SelectionKey key, int op){
+		if(key.attachment()!=null){
+			KeyAttr attr = (KeyAttr)key.attachment();
+			attr.setState(attr.getState() & ~op);
+		}
+		key.interestOps(key.interestOps() & ~op);
+	}
+	
 	private void start(){	
 		// create the listening
 		try{
 			ServerSocketChannel serverChannel = ServerSocketChannel.open();
 			ServerSocket serverSocket = serverChannel.socket();
+			System.out.println("select Server listen on " + bindIp+", "+bindPort);
 			serverSocket.bind(new InetSocketAddress(bindIp, bindPort));
 			serverChannel.configureBlocking(false);
 			// register the selector
@@ -89,11 +107,11 @@ public class Server {
 		}
 		
 		// the server event loop
-		System.out.println("sever start");
+		System.out.println("server start");
 		while(!stop){
 			eventCount = 0;
 			try {
-				eventCount = selector.select(selectTimeout);
+				eventCount = selector.select();
 				if (eventCount <= 0) {
 					continue;
 				}
@@ -106,46 +124,53 @@ public class Server {
 			while (it.hasNext()) {
 				try {
 					SelectionKey key = (SelectionKey) it.next();
-					
+					it.remove();
+					if(key==null) continue;
 //					System.out.println("handle "+n+", ready="+key.readyOps()+", inter="+key.interestOps()+", usedMem="+usedMem+", connSize="+selectionKeys.size());
 					
 					if (key.isAcceptable()) {
-//						if(selectionKeys.size()>=maxConnNum){
-//							System.err.println(String.format("reach max conn num : ", maxConnNum));
-//							continue;
-//						}
+						if(selectionKeys.size()>=maxConnNum){
+							System.err.println(String.format("reach max conn num : ", maxConnNum));
+							closeConnection(key, key.channel());
+							continue;
+						}
 						ServerSocketChannel server = (ServerSocketChannel) key.channel();
 						SocketChannel channel = server.accept();
 						channel.configureBlocking(false);
 						KeyAttr attr = new KeyAttr();
-						attr.setReadOnly();
+						attr.setState(attr.getState() | SelectionKey.OP_READ);
+						attr.setConnTime(System.currentTimeMillis());
 						SelectionKey registed = channel.register(selector, SelectionKey.OP_READ, attr);
 						selectionKeys.add(registed);
 //						System.out.println("connect, connNum:"+selectionKeys.size()+", usedMem="+usedMem);
 					}
 					if (key.isWritable()) {
 						KeyAttr keyAttr = (KeyAttr)key.attachment();
-						if(keyAttr!=null && keyAttr.isWritable()){
+						keyAttr.setLastActive(System.currentTimeMillis());
+						if(keyAttr==null || keyAttr.isStateNone()) closeConnection(key, key.channel());
+						if(keyAttr.isWritable()){
 							SocketChannel channel = (SocketChannel) key.channel();
 							int writelen = writeToSocket(channel, keyAttr);
 							if(writelen>=0){
-								keyAttr.setReadOnly();
-								key.interestOps(SelectionKey.OP_READ);
+								unRegistOp(key, SelectionKey.OP_WRITE);
+							}else{
+								closeConnection(key, channel);
 							}
-//							else if(writelen<0){
-//								closeConnection(key, channel);
-//							}
 						}
 					}
 					if (key.isReadable()) {
 						KeyAttr keyAttr = (KeyAttr)key.attachment();
-						if(keyAttr!=null && keyAttr.isReadable()){
+						keyAttr.setLastActive(System.currentTimeMillis());
+						if(keyAttr==null || keyAttr.isStateNone()) closeConnection(key, key.channel());
+						if(keyAttr.isReadable()){
 							SocketChannel channel = (SocketChannel) key.channel();
 							reqnum++;
 							int readlen = readFromSocket(channel, keyAttr);
 							if(readlen>0 && keyAttr.getData()!=null){
-								keyAttr.setWriteOnly();
-								key.interestOps(SelectionKey.OP_WRITE);
+								registOp(key, SelectionKey.OP_WRITE);
+							}else if(readlen==0){
+								// close ? or try again?
+								closeConnection(key, channel);
 							}else{
 								closeConnection(key, channel);
 							}
@@ -154,10 +179,8 @@ public class Server {
 				} catch (IOException e) {
 					e.printStackTrace();
 					continue;
-				} finally {
-//					System.out.println("remove");
-					it.remove();
-				}	
+				}
+				
 			}
 		}
 		
@@ -173,6 +196,7 @@ public class Server {
 		System.err.println("close conn, connnum="+selectionKeys.size());
 		selectionKeys.remove(key);
 		channel.close();
+		key.cancel();
 	}
 	
 	private int writeToSocket(SocketChannel channel, KeyAttr attr) throws IOException{
@@ -234,6 +258,20 @@ public class Server {
 	public void clearRequestCount(){reqnum=0;}
 	
 	public static void main(String args[]) throws IOException {
+		
+		if(args!=null && args.length>=1){
+			String ip = "127.0.0.1";
+			try{
+				ip = args[1];
+			}catch(Exception e){}
+			int port = 23876;
+			try{
+				port = Integer.valueOf(args[2]);
+			}catch(Exception e){}
+			BIND_IP = ip;
+			BIND_PORT = port;
+		}
+		
 		final Server s = new Server();
 		Thread watcher = new Thread(new Runnable() {
 			@Override
@@ -244,7 +282,8 @@ public class Server {
 					long usedMem = (t-f)/m;
 					System.out.println("watcher, used_mem="+usedMem
 							+",con_num="+s.getConnNum()
-							+",req_count="+s.getRequestCount());
+							+",req_count="+s.getRequestCount()
+							+",eventCount="+s.eventCount);
 					s.clearRequestCount();
 					try {
 						Thread.sleep(1000);
