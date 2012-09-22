@@ -72,7 +72,7 @@ public class Client {
 			MAIN_LOOP: while (true) {
 				int n = 0;
 				try{
-					n = selector.select(2000);
+					n = selector.select();
 				}catch(IOException e){
 					e.printStackTrace();
 					System.out.println("select error!");
@@ -130,7 +130,7 @@ public class Client {
 								long last = System.currentTimeMillis() - start;
 //								System.out.println("read "+msg + ", used time :" + last + "ms");
 								msg = "";
-								key.interestOps(SelectionKey.OP_WRITE);
+								key.interestOps(key.interestOps() | SelectionKey.OP_WRITE);
 							} else if(count<0) {
 								client.close();
 								System.err.println("client closed");
@@ -165,7 +165,8 @@ public class Client {
 						}
 						try {
 							channel.write(ByteBuffer.wrap(aaa));
-							channel.register(selector, SelectionKey.OP_READ);
+//							channel.register(selector, SelectionKey.OP_READ);
+							key.interestOps(key.interestOps() & ~SelectionKey.OP_WRITE);
 							writeCount.incrementAndGet();
 //							System.out.println("write:"+name);
 						} catch (IOException e) {
@@ -187,7 +188,7 @@ public class Client {
 		
 	} // end class Connect
 
-	public static final int MAX_CONN = 1000;
+	public static final int MAX_CONN = 50;
 	
 	public static void main(String[] args){
 		

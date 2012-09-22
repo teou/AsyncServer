@@ -1,7 +1,6 @@
 package ukm.teou.async.server.select;
 
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.nio.ByteBuffer;
@@ -14,20 +13,18 @@ import java.nio.channels.SocketChannel;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.Charset;
 import java.nio.charset.CharsetDecoder;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
-
-
+/*
+ *  long conn socket need a heart beat
+ */
 public class Server {
 	
 	public volatile static int BIND_PORT = 23876;
-	public volatile  static String BIND_IP = "127.0.0.1";//10.3.144.136
+	public volatile  static String BIND_IP = "10.3.144.136";//10.3.144.136
 	public static final int SELECT_TIMEOUT = 2000;
 	public static final int MAX_CONN_NUM = 102400;
 	
@@ -41,8 +38,9 @@ public class Server {
 	private Set<SelectionKey> selectionKeys;
 	private ByteBuffer rcvBuffer;
 	private ByteBuffer writeBuffer;
-	private int reqnum;
-	private int eventCount;
+	private final AtomicInteger oprCount = new AtomicInteger(0);
+	private final AtomicInteger fetchCount = new AtomicInteger(0);
+	private final AtomicInteger eventCount = new AtomicInteger(0);
 	
 	public Server(){
 		stop = false;
@@ -55,8 +53,6 @@ public class Server {
 		serverKey = null;
 		rcvBuffer = ByteBuffer.allocate(1024);
 		writeBuffer = ByteBuffer.allocate(1024);
-		reqnum = 0;
-		eventCount = 0;
 	}
 	
 	public void stop(){
@@ -109,10 +105,9 @@ public class Server {
 		// the server event loop
 		System.out.println("server start");
 		while(!stop){
-			eventCount = 0;
 			try {
-				eventCount = selector.select();
-				if (eventCount <= 0) {
+				eventCount.set(selector.select());
+				if (eventCount.get() <= 0) {
 					continue;
 				}
 			} catch (IOException e) {
@@ -124,6 +119,7 @@ public class Server {
 			while (it.hasNext()) {
 				try {
 					SelectionKey key = (SelectionKey) it.next();
+//					System.out.println("read = "+key.readyOps());
 					it.remove();
 					if(key==null) continue;
 //					System.out.println("handle "+n+", ready="+key.readyOps()+", inter="+key.interestOps()+", usedMem="+usedMem+", connSize="+selectionKeys.size());
@@ -164,7 +160,6 @@ public class Server {
 						if(keyAttr==null || keyAttr.isStateNone()) closeConnection(key, key.channel());
 						if(keyAttr.isReadable()){
 							SocketChannel channel = (SocketChannel) key.channel();
-							reqnum++;
 							int readlen = readFromSocket(channel, keyAttr);
 							if(readlen>0 && keyAttr.getData()!=null){
 								registOp(key, SelectionKey.OP_WRITE);
@@ -199,7 +194,7 @@ public class Server {
 		key.cancel();
 	}
 	
-	private int writeToSocket(SocketChannel channel, KeyAttr attr) throws IOException{
+	private int writeToSocket(SocketChannel channel, KeyAttr attr){
 		if(channel==null) return -1;
 		if(attr.getData()!=null){
 			String content = HELLO.equals(attr.getData())?
@@ -215,10 +210,13 @@ public class Server {
 				while(writeBuffer.hasRemaining()){
 					written+=channel.write(writeBuffer);
 				}
+				if(written>0){
+					oprCount.incrementAndGet();
+				}
 				return written;
-			} catch (UnsupportedEncodingException e) {
+			} catch (IOException e) {
 				e.printStackTrace();
-				return 0;
+				return -1;
 			}
 		}
 
@@ -250,12 +248,13 @@ public class Server {
 		String rcvd = charBuffer.toString();
 //		System.out.println("rcv:"+rcvd+", connNum:"+selectionKeys.size()+", usedMem="+usedMem);
 		attr.setData(rcvd);
+		if(readcount>0){
+			fetchCount.incrementAndGet();
+		}
 		return readcount;
 	}
 	
 	public int getConnNum(){return selectionKeys.size();}
-	public int getRequestCount(){return reqnum;}
-	public void clearRequestCount(){reqnum=0;}
 	
 	public static void main(String args[]) throws IOException {
 		
@@ -282,9 +281,9 @@ public class Server {
 					long usedMem = (t-f)/m;
 					System.out.println("watcher, used_mem="+usedMem
 							+",con_num="+s.getConnNum()
-							+",req_count="+s.getRequestCount()
-							+",eventCount="+s.eventCount);
-					s.clearRequestCount();
+							+",last_event_count="+s.eventCount.getAndSet(0)
+							+",fetch_count="+s.fetchCount.getAndSet(0)
+							+",opr_count="+s.oprCount.getAndSet(0));
 					try {
 						Thread.sleep(1000);
 					} catch (InterruptedException e) {

@@ -24,6 +24,9 @@ public class Test {
 		else if("SelectClient".equals(args[0])){
 			ukm.teou.async.client.select.Client.main(args);
 		}
+		else if("AioClient".equals(args[0])){
+			ukm.teou.async.client.aio.Client.main(args);
+		}
 		
 	}
 	
